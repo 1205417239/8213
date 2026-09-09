@@ -1,0 +1,51 @@
+name: Build LinguaTweak Clean
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install ldid dpkg || true
+
+      - name: Install Theos
+        run: |
+          rm -rf "$HOME/theos"
+          git clone --depth=1 https://github.com/roothide/theos.git "$HOME/theos"
+
+      - name: Check Theos
+        run: |
+          export THEOS="$HOME/theos"
+          echo "THEOS=$THEOS"
+          ls "$THEOS"
+
+      - name: Build arm64e
+        run: |
+          export THEOS="$HOME/theos"
+          export PATH="/opt/homebrew/bin:$PATH"
+
+          make clean
+
+          make package \
+            ARCHS=arm64e \
+            FINALPACKAGE=1
+
+      - name: Check deb
+        run: |
+          find . -name "*.deb" -print
+
+      - name: Upload deb
+        uses: actions/upload-artifact@v4
+        with:
+          name: LinguaTweak-arm64e-clean
+          path: |
+            packages/*.deb
+            .theos/packages/*.deb
+          if-no-files-found: error
