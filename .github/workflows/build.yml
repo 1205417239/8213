@@ -19,32 +19,14 @@ jobs:
       - name: Build arm64e
         run: |
           export THEOS="$HOME/theos"
-          export THEOS_MAKE_PATH="$HOME/theos/makefiles"
-          export PATH="$HOME/theos/bin:/opt/homebrew/bin:$PATH"
+          export THEOS_MAKE_PATH="$THEOS/makefiles"
+          export PATH="$THEOS/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 
           echo "THEOS=$THEOS"
           echo "THEOS_MAKE_PATH=$THEOS_MAKE_PATH"
 
-          ls "$THEOS_MAKE_PATH/tweak.mk"
-          ls "$THEOS_MAKE_PATH/aggregate.mk"
-
-          echo "Checking dm.pl..."
-
-          if [ -x "$THEOS/bin/dm.pl" ]; then
-            echo "Found: $THEOS/bin/dm.pl"
-          elif [ -x "$THEOS/vendor/dm.pl/dm.pl" ]; then
-            echo "Found: $THEOS/vendor/dm.pl/dm.pl"
-            export PATH="$THEOS/vendor/dm.pl:$PATH"
-          elif [ -x "$THEOS/bin/dm.py" ]; then
-            echo "Found: $THEOS/bin/dm.py"
-          else
-            echo "ERROR: dm.pl was not found in Theos"
-            find "$THEOS" -name "dm.pl" -o -name "dm.py"
-            exit 1
-          fi
-
-          which dm.pl || true
-          which dm.py || true
+          ls -l "$THEOS/makefiles/tweak.mk"
+          ls -l "$THEOS/makefiles/aggregate.mk"
 
           cd LinguaTweakPrefs
 
