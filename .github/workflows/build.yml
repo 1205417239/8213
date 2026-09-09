@@ -39,6 +39,10 @@ jobs:
           echo "=== SDK ==="
           ls -ld "$THEOS/sdks/iPhoneOS16.5.sdk"
 
+      - name: Install ldid
+        run: |
+          brew install ldid
+
       - name: Build LinguaTweak
         run: |
           export THEOS="$HOME/theos"
