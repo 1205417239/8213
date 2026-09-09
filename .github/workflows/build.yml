@@ -42,6 +42,10 @@ jobs:
           echo "=== iPhoneOS16.5.sdk ==="
           ls -ld "$THEOS/sdks/iPhoneOS16.5.sdk"
 
+      - name: Install ldid
+        run: |
+          brew install ldid
+
       - name: Build arm64e
         run: |
           export THEOS="$HOME/theos"
