@@ -21,6 +21,27 @@ jobs:
             https://github.com/roothide/theos.git \
             "$HOME/theos"
 
+      - name: Install iPhoneOS 16.5 SDK
+        run: |
+          export THEOS="$HOME/theos"
+
+          mkdir -p "$THEOS/sdks"
+
+          curl -L \
+            https://github.com/theos/sdks/releases/latest/download/iPhoneOS16.5.sdk.tar.xz \
+            -o "$THEOS/sdks/iPhoneOS16.5.sdk.tar.xz"
+
+          tar -xJf "$THEOS/sdks/iPhoneOS16.5.sdk.tar.xz" \
+            -C "$THEOS/sdks"
+
+          rm -f "$THEOS/sdks/iPhoneOS16.5.sdk.tar.xz"
+
+          echo "=== SDKs ==="
+          ls -la "$THEOS/sdks"
+
+          echo "=== iPhoneOS16.5.sdk ==="
+          ls -ld "$THEOS/sdks/iPhoneOS16.5.sdk"
+
       - name: Build arm64e
         run: |
           export THEOS="$HOME/theos"
@@ -38,7 +59,9 @@ jobs:
           ls -l "$THEOS/bin/dm.pl"
           ls -l "$THEOS/vendor/dm.pl/dm.pl"
 
-          echo "=== Build PreferenceBundle ==="
+          echo "=== Check SDK ==="
+          ls -ld "$THEOS/sdks/iPhoneOS16.5.sdk"
+
           cd LinguaTweakPrefs
 
           make package \
