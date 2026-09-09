@@ -82,7 +82,10 @@ jobs:
           fi
           echo "Package: $DEB"
           TMP_DIR=$(mktemp -d)
-          ar -x "$DEB" -C "$TMP_DIR"
+          (
+            cd "$TMP_DIR"
+            ar -x "$DEB"
+          )
           echo "=== Package archive contents ==="
           tar -tf "$TMP_DIR/data.tar"* 
           echo "=== Required files ==="
