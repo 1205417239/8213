@@ -1,0 +1,10 @@
+Package: com.lingua.tweak
+Name: LinguaTweak
+Version: 0.1.0
+Architecture: iphoneos-arm64e
+Description: System-wide screen text tools: freeze, screenshot, translate, AI assist, editor, long-shot and Sileo translation.
+Maintainer: LinguaTweak Dev
+Author: LinguaTweak Dev
+Section: Tweaks
+Depends: firmware (>= 17.0)
+Tag: role::hacker, purpose::extend
