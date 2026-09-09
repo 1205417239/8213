@@ -21,7 +21,7 @@ LinguaTweak_FILES = Tweak.x \
                     Sources/UI/LTTranslatePanel.m \
                     Sources/UI/LTHintLabel.m
 
-LinguaTweak_CFLAGS = -fobjc-arc -Wall -ISources/Core/LTManager -ISources/Freeze/LTFreezeManager -ISources/Screenshot/LTScreenshotManager -ISources/Translate/LTTranslateManager -ISources/AI/LTAIManager -ISources/Editor/LTEditorManager -ISources/LongShot/LTLongShotManager -ISources/Sileo/LTSileoTranslateManager -ISources/UI
+LinguaTweak_CFLAGS = -fobjc-arc -Wall -Wno-deprecated-declarations -ISources/Core/LTManager -ISources/Freeze/LTFreezeManager -ISources/Screenshot/LTScreenshotManager -ISources/Translate/LTTranslateManager -ISources/AI/LTAIMan[...]
 LinguaTweak_FRAMEWORKS = UIKit Foundation
 
 SUBPROJECTS += LinguaTweakPrefs
