@@ -103,6 +103,14 @@ jobs:
             exit 1
           fi
           echo "✓ Both LinguaTweak.dylib and LinguaTweakPrefs.bundle are present"
+          if tar -tf "$TMP_DIR/data.tar"* | grep -q "Library/PreferenceLoader/Preferences/LinguaTweak.plist"; then
+            echo "✓ PreferenceLoader registration plist found"
+          else
+            echo "ERROR: PreferenceLoader registration plist NOT found"
+            echo "=== PreferenceLoader files ==="
+            tar -tf "$TMP_DIR/data.tar"* | grep -i "PreferenceLoader" || true
+            exit 1
+          fi
 
       - name: Upload deb
         uses: actions/upload-artifact@v4
