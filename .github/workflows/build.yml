@@ -28,6 +28,15 @@ jobs:
           ls -l "$THEOS/makefiles/tweak.mk"
           ls -l "$THEOS/makefiles/aggregate.mk"
 
+          echo "=== dm.pl locations ==="
+          find "$THEOS" -type f -name "dm.pl" -print
+
+          echo "=== dm.pl references in Theos makefiles ==="
+          grep -R "dm.pl" "$THEOS/makefiles" | head -30 || true
+
+          echo "=== PATH dm.pl ==="
+          command -v dm.pl || true
+
           cd LinguaTweakPrefs
 
           make package \
