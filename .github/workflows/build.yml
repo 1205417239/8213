@@ -14,7 +14,12 @@ jobs:
       - name: Install Theos
         run: |
           rm -rf "$HOME/theos"
-          git clone --depth=1 https://github.com/roothide/theos.git "$HOME/theos"
+
+          git clone \
+            --depth=1 \
+            --recurse-submodules \
+            https://github.com/roothide/theos.git \
+            "$HOME/theos"
 
       - name: Build arm64e
         run: |
@@ -25,18 +30,15 @@ jobs:
           echo "THEOS=$THEOS"
           echo "THEOS_MAKE_PATH=$THEOS_MAKE_PATH"
 
+          echo "=== Check Theos ==="
           ls -l "$THEOS/makefiles/tweak.mk"
           ls -l "$THEOS/makefiles/aggregate.mk"
 
-          echo "=== dm.pl locations ==="
-          find "$THEOS" -type f -name "dm.pl" -print
+          echo "=== Check dm.pl ==="
+          ls -l "$THEOS/bin/dm.pl"
+          ls -l "$THEOS/vendor/dm.pl/dm.pl"
 
-          echo "=== dm.pl references in Theos makefiles ==="
-          grep -R "dm.pl" "$THEOS/makefiles" | head -30 || true
-
-          echo "=== PATH dm.pl ==="
-          command -v dm.pl || true
-
+          echo "=== Build PreferenceBundle ==="
           cd LinguaTweakPrefs
 
           make package \
@@ -52,6 +54,6 @@ jobs:
         with:
           name: LinguaTweak-arm64e
           path: |
-            packages/*.deb
-            .theos/packages/*.deb
+            LinguaTweakPrefs/packages/*.deb
+            LinguaTweakPrefs/.theos/packages/*.deb
           if-no-files-found: error
