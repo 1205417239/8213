@@ -74,14 +74,31 @@ jobs:
 
       - name: Inspect package
         run: |
-          echo "=== DEB FILES ==="
-          find . -name "*.deb" -print
-
-          echo "=== PACKAGE CONTENT ==="
-          for deb in $(find . -name "*.deb"); do
-            echo "----- $deb -----"
-            dpkg-deb -c "$deb"
-          done
+          echo "=== Checking Debian package contents ==="
+          DEB=$(find . -name "*.deb" -type f | head -n 1)
+          if [ -z "$DEB" ]; then
+            echo "ERROR: No .deb package found"
+            exit 1
+          fi
+          echo "Package: $DEB"
+          TMP_DIR=$(mktemp -d)
+          ar -x "$DEB" --output "$TMP_DIR"
+          echo "=== Package archive contents ==="
+          tar -tf "$TMP_DIR/data.tar"* 
+          echo "=== Required files ==="
+          if tar -tf "$TMP_DIR/data.tar"* | grep -q "LinguaTweak.dylib"; then
+            echo "✓ LinguaTweak.dylib found"
+          else
+            echo "ERROR: LinguaTweak.dylib not found"
+            exit 1
+          fi
+          if tar -tf "$TMP_DIR/data.tar"* | grep -q "LinguaTweakPrefs.bundle"; then
+            echo "✓ LinguaTweakPrefs.bundle found"
+          else
+            echo "ERROR: LinguaTweakPrefs.bundle not found"
+            exit 1
+          fi
+          echo "✓ Both LinguaTweak.dylib and LinguaTweakPrefs.bundle are present"
 
       - name: Upload deb
         uses: actions/upload-artifact@v4
