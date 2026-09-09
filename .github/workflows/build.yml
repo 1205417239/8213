@@ -81,6 +81,7 @@ jobs:
             exit 1
           fi
           echo "Package: $DEB"
+          DEB="$(cd "$(dirname "$DEB")" && pwd)/$(basename "$DEB")"
           TMP_DIR=$(mktemp -d)
           (
             cd "$TMP_DIR"
