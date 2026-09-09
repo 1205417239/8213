@@ -8,8 +8,20 @@ include $(THEOS)/makefiles/common.mk
 
 TWEAK_NAME = LinguaTweak
 
-LinguaTweak_FILES = Tweak.x
-LinguaTweak_CFLAGS = -fobjc-arc -Wall
+LinguaTweak_FILES = Tweak.x \
+                    Sources/Core/LTManager/LTManager.m \
+                    Sources/Freeze/LTFreezeManager/LTFreezeManager.m \
+                    Sources/Screenshot/LTScreenshotManager/LTScreenshotManager.m \
+                    Sources/Translate/LTTranslateManager/LTTranslateManager.m \
+                    Sources/AI/LTAIManager/LTAIManager.m \
+                    Sources/Editor/LTEditorManager/LTEditorManager.m \
+                    Sources/LongShot/LTLongShotManager/LTLongShotManager.m \
+                    Sources/Sileo/LTSileoTranslateManager/LTSileoTranslateManager.m \
+                    Sources/UI/LTToolbarView.m \
+                    Sources/UI/LTTranslatePanel.m \
+                    Sources/UI/LTHintLabel.m
+
+LinguaTweak_CFLAGS = -fobjc-arc -Wall -ISOUrces/Core/LTManager -ISOUrces/Freeze/LTFreezeManager -ISOUrces/Screenshot/LTScreenshotManager -ISOUrces/Translate/LTTranslateManager -ISOUrces/AI/LTAIManager -ISOUrces/Editor/LTEditorManager -ISOUrces/LongShot/LTLongShotManager -ISOUrces/Sileo/LTSileoTranslateManager -ISOUrces/UI
 LinguaTweak_FRAMEWORKS = UIKit Foundation
 
 SUBPROJECTS += LinguaTweakPrefs
