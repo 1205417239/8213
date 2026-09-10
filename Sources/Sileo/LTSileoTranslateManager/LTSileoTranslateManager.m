@@ -1,125 +1,100 @@
+// LTSileoTranslateManager.m
 #import "LTSileoTranslateManager.h"
+#import "LTTranslateManager.h"
+
+@interface LTSileoTranslateManager ()
+@property (nonatomic, strong) NSMapTable<UIView *, NSString *> *originalTextByView;
+// Fix: private selector called in -localizableLabelsInView: before definition.
+- (void)collectLabelsFrom:(UIView *)view into:(NSMutableArray<UIView *> *)results;
+@end
 
 @implementation LTSileoTranslateManager
 
 + (instancetype)sharedManager {
-    static LTSileoTranslateManager *manager;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        manager = [[self alloc] init];
-    });
-    return manager;
+	static LTSileoTranslateManager *shared = nil;
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken, ^{ shared = [[LTSileoTranslateManager alloc] init]; });
+	return shared;
 }
 
+- (instancetype)init {
+	self = [super init];
+	if (self) {
+		_originalTextByView = [NSMapTable weakToStrongObjectsMapTable];
+	}
+	return self;
+}
+
+#pragma mark - LTModule
+
 - (void)activate {
-    self.enabled = [[LTManager sharedManager]
-                    boolForKey:@"SileoTranslateEnabled"
-                    default:YES];
+	// Hooked lazily: Tweak.x's Sileo view-controller %hook calls
+	// -translateLabelsInView: directly when this module is enabled.
 }
 
 - (void)deactivate {
-    self.enabled = NO;
+	[self.originalTextByView removeAllObjects];
 }
 
-- (void)reloadPreferences {
-    self.enabled = [[LTManager sharedManager]
-                    boolForKey:@"SileoTranslateEnabled"
-                    default:YES];
+#pragma mark - Public
+
+- (NSArray<UIView *> *)localizableLabelsInView:(UIView *)rootView {
+	NSMutableArray<UIView *> *results = [NSMutableArray array];
+	[self collectLabelsFrom:rootView into:results];
+	return results;
 }
 
-- (void)translateView:(UIView *)view {
-    if (!self.enabled || !view) {
-        return;
-    }
-
-    NSMutableString *text = [NSMutableString string];
-    [self collectTextFromView:view into:text];
-
-    if (text.length == 0) {
-        return;
-    }
-
-    [[LTTranslateManager sharedManager]
-     translateText:text
-     targetLanguage:@"zh-CN"
-     completion:^(NSString *translatedText, NSError *error) {
-        if (error || translatedText.length == 0) {
-            return;
-        }
-
-        dispatch_async(dispatch_get_main_queue(), ^{
-            [self applyTranslation:translatedText toView:view];
-        });
-    }];
+- (void)collectLabelsFrom:(UIView *)view into:(NSMutableArray<UIView *> *)results {
+	if ([view isKindOfClass:[UILabel class]] || [view isKindOfClass:[UITextView class]]) {
+		[results addObject:view];
+	}
+	for (UIView *subview in view.subviews) {
+		[self collectLabelsFrom:subview into:results];
+	}
 }
 
-#pragma mark - Collect
-
-- (void)collectTextFromView:(UIView *)view
-                       into:(NSMutableString *)result {
-
-    if ([view isKindOfClass:[UILabel class]]) {
-        NSString *text = ((UILabel *)view).text;
-        if (text.length) {
-            [result appendString:text];
-            [result appendString:@"\n"];
-        }
-    }
-    else if ([view isKindOfClass:[UITextView class]]) {
-        NSString *text = ((UITextView *)view).text;
-        if (text.length) {
-            [result appendString:text];
-            [result appendString:@"\n"];
-        }
-    }
-
-    for (UIView *subview in view.subviews) {
-        [self collectTextFromView:subview into:result];
-    }
+- (nullable NSString *)textOf:(UIView *)view {
+	if ([view isKindOfClass:[UILabel class]]) {
+		return ((UILabel *)view).text;
+	}
+	if ([view isKindOfClass:[UITextView class]]) {
+		return ((UITextView *)view).text;
+	}
+	return nil;
 }
 
-#pragma mark - Apply
-
-- (void)applyTranslation:(NSString *)translatedText
-                  toView:(UIView *)view {
-
-    NSArray<NSString *> *lines =
-        [translatedText componentsSeparatedByString:@"\n"];
-
-    __block NSUInteger index = 0;
-
-    [self applyLines:lines toView:view index:&index];
+- (void)setText:(NSString *)text on:(UIView *)view {
+	if ([view isKindOfClass:[UILabel class]]) {
+		((UILabel *)view).text = text;
+	} else if ([view isKindOfClass:[UITextView class]]) {
+		((UITextView *)view).text = text;
+	}
 }
 
-- (void)applyLines:(NSArray<NSString *> *)lines
-            toView:(UIView *)view
-             index:(NSUInteger *)index {
+- (void)translateLabelsInView:(UIView *)rootView {
+	if (![[LTManager sharedManager] boolForKey:@"SileoTranslateEnabled" default:NO]) return;
 
-    if ([view isKindOfClass:[UILabel class]]) {
-        UILabel *label = (UILabel *)view;
+	NSArray<UIView *> *labels = [self localizableLabelsInView:rootView];
+	NSString *targetLanguage = NSLocale.currentLocale.languageCode ?: @"en";
 
-        if (*index < lines.count) {
-            NSString *line = lines[*index];
-            if (line.length) {
-                label.text = line;
-            }
-            (*index)++;
-        }
-    }
-    else if ([view isKindOfClass:[UITextView class]]) {
-        UITextView *textView = (UITextView *)view;
+	for (UIView *label in labels) {
+		NSString *original = [self textOf:label];
+		if (original.length < 2) continue; // skip empty/trivial (icons, badges)
 
-        if (*index < lines.count) {
-            textView.text = lines[*index];
-            (*index)++;
-        }
-    }
+		if (![self.originalTextByView objectForKey:label]) {
+			[self.originalTextByView setObject:original forKey:label];
+		}
 
-    for (UIView *subview in view.subviews) {
-        [self applyLines:lines
-                  toView:subview
-                   index:index];
-    }
+		__weak UIView *weakLabel = label;
+		[[LTTranslateManager sharedManager] translateText:original targetLanguage:targetLanguage completion:^(NSString * _Nullable translatedText, NSError * _Nullable error) {
+			if (!translatedText || error) return;
+			UIView *strongLabel = weakLabel;
+			if (!strongLabel) return;
+			dispatch_async(dispatch_get_main_queue(), ^{
+				[self setText:translatedText on:strongLabel];
+			});
+		}];
+	}
 }
 
 @end

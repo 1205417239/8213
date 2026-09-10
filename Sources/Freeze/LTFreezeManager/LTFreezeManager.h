@@ -1,53 +1,33 @@
+// LTFreezeManager.h
+// "Freeze" module: snapshots the current screen into a still overlay
+// window so the user can take their time inspecting / selecting text
+// on a screen that would otherwise auto-scroll, animate, or dismiss
+// (video players, stories, toasts, etc).
+//
+// Extension point: -freezeCurrentScreen currently rasterizes the key
+// window; swap in a lower-level IOSurface capture later without
+// changing the public interface.
+
+#import <Foundation/Foundation.h>
 #import <UIKit/UIKit.h>
+#import "LTManager.h"
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface LTFreezeManager : NSObject
+@interface LTFreezeManager : NSObject <LTModule>
 
 + (instancetype)sharedManager;
 
-@property (nonatomic, readonly, getter=isFrozen) BOOL frozen;
+@property (nonatomic, assign, readonly, getter=isFrozen) BOOL frozen;
 
-/**
- * 开始冻结当前屏幕。
- *
- * 流程：
- * 1. 获取当前屏幕图像
- * 2. 创建独立冻结窗口
- * 3. 显示冻结画面
- * 4. 进入区域选择状态
- */
-- (void)startFreeze;
+// Captures the current key window into a still image and presents it
+// full-screen, blocking underlying interaction/animation.
+- (void)freezeCurrentScreen;
 
-/**
- * 结束冻结并移除冻结窗口。
- */
-- (void)stopFreeze;
+// Removes the frozen overlay and resumes live interaction.
+- (void)unfreeze;
 
-/**
- * 开始/结束冻结。
- */
 - (void)toggleFreeze;
-
-/**
- * 当前冻结画面的截图。
- */
-- (nullable UIImage *)currentFreezeImage;
-
-/**
- * 当前用户选择的区域。
- */
-- (CGRect)selectedRegion;
-
-/**
- * 设置当前选择区域。
- */
-- (void)setSelectedRegion:(CGRect)region;
-
-/**
- * 从当前冻结画面取得选区图片。
- */
-- (nullable UIImage *)selectedRegionImage;
 
 @end
 

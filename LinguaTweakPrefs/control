@@ -1,7 +1,7 @@
 Package: com.lingua.tweak.prefs
 Name: LinguaTweak Preferences
 Version: 0.1.0
-Architecture: iphoneos-arm64
+Architecture: iphoneos-arm64e
 Description: Preference bundle for LinguaTweak.
 Maintainer: LinguaTweak Dev
 Author: LinguaTweak Dev

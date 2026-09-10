@@ -1,128 +1,137 @@
+// LTToolbarView.m
 #import "LTToolbarView.h"
+#import "LTHintLabel.h"
+
+const CGFloat kLTToolbarFixedWidth  = 260.0; // fixed length
+const CGFloat kLTToolbarFixedHeight = 44.0;
+
+static const CGFloat kLTToolbarIconSize   = 32.0;
+static const CGFloat kLTToolbarIconSpacing = 8.0;
+static const CGFloat kLTToolbarScreenMargin = 6.0;
+
+@implementation LTToolbarItem
+
++ (instancetype)itemWithIdentifier:(NSString *)identifier
+                               icon:(UIImage *)icon
+                           hintText:(NSString *)hintText
+                             action:(void (^)(void))action {
+	LTToolbarItem *item = [LTToolbarItem new];
+	item.identifier = identifier;
+	item.icon = icon;
+	item.hintText = hintText;
+	item.action = action;
+	return item;
+}
+
+@end
+
+@interface LTToolbarView ()
+@property (nonatomic, strong) UIScrollView *scrollView;
+@property (nonatomic, strong) UIStackView *stackView;
+@property (nonatomic, strong) NSArray<LTToolbarItem *> *items;
+@end
 
 @implementation LTToolbarView
 
-- (instancetype)initWithFrame:(CGRect)frame {
-    self = [super initWithFrame:frame];
-    if (self) {
-        self.backgroundColor =
-            [UIColor colorWithWhite:0.08 alpha:0.88];
-        self.layer.cornerRadius = 22.0;
-        self.layer.masksToBounds = YES;
+- (instancetype)init {
+	self = [super initWithFrame:CGRectMake(0, 0, kLTToolbarFixedWidth, kLTToolbarFixedHeight)];
+	if (self) {
+		// Transparent, borderless per spec.
+		self.backgroundColor = [UIColor.blackColor colorWithAlphaComponent:0.55];
+		self.layer.cornerRadius = kLTToolbarFixedHeight / 2.0;
+		self.layer.masksToBounds = YES;
+		self.layer.borderWidth = 0;
 
-        _scrollView = [[UIScrollView alloc] initWithFrame:CGRectZero];
-        _scrollView.showsHorizontalScrollIndicator = NO;
-        _scrollView.alwaysBounceHorizontal = YES;
-        [self addSubview:_scrollView];
+		_scrollView = [[UIScrollView alloc] initWithFrame:self.bounds];
+		_scrollView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+		_scrollView.showsHorizontalScrollIndicator = NO;
+		_scrollView.showsVerticalScrollIndicator = NO;
+		_scrollView.backgroundColor = UIColor.clearColor;
+		[self addSubview:_scrollView];
 
-        _stackView = [[UIStackView alloc] initWithFrame:CGRectZero];
-        _stackView.axis = UILayoutConstraintAxisHorizontal;
-        _stackView.alignment = UIStackViewAlignmentCenter;
-        _stackView.spacing = 6.0;
-        [_scrollView addSubview:_stackView];
-    }
-    return self;
+		_stackView = [[UIStackView alloc] init];
+		_stackView.axis = UILayoutConstraintAxisHorizontal;
+		_stackView.alignment = UIStackViewAlignmentCenter;
+		_stackView.spacing = kLTToolbarIconSpacing;
+		_stackView.translatesAutoresizingMaskIntoConstraints = NO;
+		[_scrollView addSubview:_stackView];
+
+		[NSLayoutConstraint activateConstraints:@[
+			[_stackView.leadingAnchor constraintEqualToAnchor:_scrollView.leadingAnchor constant:kLTToolbarIconSpacing],
+			[_stackView.trailingAnchor constraintEqualToAnchor:_scrollView.trailingAnchor constant:-kLTToolbarIconSpacing],
+			[_stackView.topAnchor constraintEqualToAnchor:_scrollView.topAnchor],
+			[_stackView.bottomAnchor constraintEqualToAnchor:_scrollView.bottomAnchor],
+			[_stackView.heightAnchor constraintEqualToAnchor:_scrollView.heightAnchor],
+		]];
+	}
+	return self;
 }
 
-- (void)layoutSubviews {
-    [super layoutSubviews];
+- (void)configureWithItems:(NSArray<LTToolbarItem *> *)items {
+	self.items = items;
+	for (UIView *subview in self.stackView.arrangedSubviews) {
+		[self.stackView removeArrangedSubview:subview];
+		[subview removeFromSuperview];
+	}
 
-    CGFloat h = self.bounds.size.height;
+	for (LTToolbarItem *item in items) {
+		UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+		button.tintColor = UIColor.whiteColor;
+		[button setImage:[item.icon imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate] forState:UIControlStateNormal];
+		button.frame = CGRectMake(0, 0, kLTToolbarIconSize, kLTToolbarIconSize);
+		[button.widthAnchor constraintEqualToConstant:kLTToolbarIconSize].active = YES;
+		[button.heightAnchor constraintEqualToConstant:kLTToolbarIconSize].active = YES;
+		[button addAction:[UIAction actionWithHandler:^(__kindof UIAction * _Nonnull action) {
+			if (item.action) item.action();
+		}] forControlEvents:UIControlEventTouchUpInside];
 
-    self.scrollView.frame =
-        CGRectMake(8.0, 0.0,
-                   self.bounds.size.width - 16.0,
-                   h);
+		if (item.hintText.length > 0) {
+			[LTHintLabel attachHintWithText:item.hintText toView:button];
+		}
 
-    CGSize size =
-        [self.stackView systemLayoutSizeFittingSize:
-            CGSizeMake(CGFLOAT_MAX, h)];
-
-    self.stackView.frame =
-        CGRectMake(0.0, 0.0,
-                   MAX(size.width, self.scrollView.bounds.size.width),
-                   h);
-
-    self.scrollView.contentSize = self.stackView.bounds.size;
+		[self.stackView addArrangedSubview:button];
+	}
 }
 
-#pragma mark - Buttons
+#pragma mark - Presentation / edge avoidance
 
-- (UIButton *)buttonWithSymbol:(NSString *)symbol
-                          title:(NSString *)title {
+- (void)presentAnchoredToSelectionRect:(CGRect)selectionRect inWindow:(UIWindow *)window {
+	CGFloat screenWidth = window.bounds.size.width;
 
-    UIButton *button = [UIButton buttonWithType:UIButtonTypeSystem];
+	CGFloat proposedX = CGRectGetMinX(selectionRect); // default: left-align to selection
+	CGFloat y = CGRectGetMinY(selectionRect) - kLTToolbarFixedHeight - 8;
+	if (y < kLTToolbarScreenMargin) {
+		// Not enough room above; place below the selection instead.
+		y = CGRectGetMaxY(selectionRect) + 8;
+	}
 
-    UIImageSymbolConfiguration *config =
-        [UIImageSymbolConfiguration
-            configurationWithPointSize:19.0
-                                weight:UIImageSymbolWeightMedium];
+	if (proposedX + kLTToolbarFixedWidth > screenWidth - kLTToolbarScreenMargin) {
+		// Overflow on the right: align toolbar's right edge to selection's right edge.
+		proposedX = CGRectGetMaxX(selectionRect) - kLTToolbarFixedWidth;
+	}
+	// Clamp to screen bounds as a final safety net.
+	proposedX = MAX(kLTToolbarScreenMargin, MIN(proposedX, screenWidth - kLTToolbarFixedWidth - kLTToolbarScreenMargin));
 
-    UIImage *image =
-        [UIImage systemImageNamed:symbol
-             withConfiguration:config];
+	self.frame = CGRectMake(proposedX, y, kLTToolbarFixedWidth, kLTToolbarFixedHeight);
+	self.alpha = 0;
+	if (!self.superview) {
+		[window addSubview:self];
+	}
 
-    [button setImage:image forState:UIControlStateNormal];
-    button.tintColor = UIColor.whiteColor;
+	[self.scrollView layoutIfNeeded];
+	self.scrollView.contentSize = CGSizeMake(self.stackView.frame.size.width + kLTToolbarIconSpacing * 2, kLTToolbarFixedHeight);
 
-    button.accessibilityLabel = title;
-    button.frame = CGRectMake(0, 0, 40, 40);
-
-    return button;
-}
-
-- (void)addButtonWithSymbol:(NSString *)symbol
-                      title:(NSString *)title
-                      target:(id)target
-                      action:(SEL)action {
-
-    UIButton *button =
-        [self buttonWithSymbol:symbol title:title];
-
-    [button addTarget:target
-               action:action
-     forControlEvents:UIControlEventTouchUpInside];
-
-    [self.stackView addArrangedSubview:button];
-}
-
-#pragma mark - Selection
-
-- (void)showAtRect:(CGRect)rect
-           inView:(UIView *)view {
-
-    if (!view) {
-        return;
-    }
-
-    if (self.superview != view) {
-        [self removeFromSuperview];
-        [view addSubview:self];
-    }
-
-    CGFloat width = MIN(280.0,
-                        view.bounds.size.width - 20.0);
-
-    CGFloat x =
-        MAX(10.0,
-            MIN(CGRectGetMidX(rect) - width / 2.0,
-                view.bounds.size.width - width - 10.0));
-
-    CGFloat y = CGRectGetMinY(rect) - 54.0;
-
-    if (y < 10.0) {
-        y = CGRectGetMaxY(rect) + 10.0;
-    }
-
-    if (y + 44.0 > view.bounds.size.height - 10.0) {
-        y = view.bounds.size.height - 54.0;
-    }
-
-    self.frame = CGRectMake(x, y, width, 44.0);
+	[UIView animateWithDuration:0.18 animations:^{
+		self.alpha = 1.0;
+	}];
 }
 
 - (void)dismiss {
-    [self removeFromSuperview];
+	[UIView animateWithDuration:0.15 animations:^{
+		self.alpha = 0;
+	} completion:^(BOOL finished) {
+		[self removeFromSuperview];
+	}];
 }
 
 @end

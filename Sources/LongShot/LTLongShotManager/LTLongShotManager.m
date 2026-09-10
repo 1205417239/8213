@@ -1,200 +1,101 @@
+// LTLongShotManager.m
 #import "LTLongShotManager.h"
+#import "LTScreenshotManager.h"
 
 @interface LTLongShotManager ()
-@property (nonatomic, weak) UIScrollView *scrollView;
+@property (nonatomic, weak) UIScrollView *targetScrollView;
 @property (nonatomic, strong) NSMutableArray<UIImage *> *frames;
-@property (nonatomic, assign) BOOL capturing;
-@property (nonatomic, assign) CGFloat overlapTrim;
+@property (nonatomic, assign) BOOL isCapturing;
+// Fix: private selector called in -finishSessionWithCompletion: before definition.
+- (nullable UIImage *)stitchFrames:(NSArray<UIImage *> *)frames;
 @end
 
 @implementation LTLongShotManager
-
 + (instancetype)sharedManager {
-    static LTLongShotManager *shared;
-    static dispatch_once_t onceToken;
-    dispatch_once(&onceToken, ^{
-        shared = [[LTLongShotManager alloc] init];
-    });
-    return shared;
+	static LTLongShotManager *shared = nil;
+	static dispatch_once_t onceToken;
+	dispatch_once(&onceToken, ^{ shared = [[LTLongShotManager alloc] init]; });
+	return shared;
 }
 
 - (instancetype)init {
-    self = [super init];
-    if (self) {
-        _frames = [NSMutableArray array];
-        _overlapTrim = 40.0;
-    }
-    return self;
+	self = [super init];
+	if (self) {
+		_frames = [NSMutableArray array];
+		_overlapTrim = 0.0;
+	}
+	return self;
 }
+#pragma mark - LTModule
 
-- (void)activate {
-}
-
-- (void)deactivate {
-    [self cancelSession];
-}
+- (void)activate {}
+- (void)deactivate { [self cancelSession]; }
+#pragma mark - Public
 
 - (void)beginSessionWithScrollView:(UIScrollView *)scrollView {
-    [self cancelSession];
-
-    self.scrollView = scrollView;
-    self.capturing = YES;
-    self.frames = [NSMutableArray array];
+	[self.frames removeAllObjects];
+	self.targetScrollView = scrollView;
+	self.isCapturing = YES;
 }
 
-- (void)captureNextFrameWithProgress:
-    (void (^)(CGFloat progress))progress {
-
-    if (!self.capturing || !self.scrollView) {
-        return;
-    }
-
-    CGRect rect =
-        [self.scrollView convertRect:self.scrollView.bounds
-                              toView:self.scrollView.window];
-
-    [[LTScreenshotManager sharedManager]
-     captureRegion:rect
-     completion:^(UIImage *image, NSError *error) {
-
-        if (!image || error || !self.capturing) {
-            return;
-        }
-
-        [self.frames addObject:image];
-
-        CGFloat maxOffset =
-            MAX(1.0,
-                self.scrollView.contentSize.height -
-                self.scrollView.bounds.size.height);
-
-        CGFloat progressValue =
-            self.scrollView.contentOffset.y / maxOffset;
-
-        if (progress) {
-            dispatch_async(dispatch_get_main_queue(), ^{
-                progress(MIN(1.0, MAX(0.0, progressValue)));
-            });
-        }
-    }];
+- (void)captureNextFrameWithProgress:(nullable LTLongShotProgress)progress {
+	if (!self.isCapturing) return;
+	UIScrollView *scrollView = self.targetScrollView;
+	if (!scrollView) return;
+	CGRect frameInWindow = [scrollView convertRect:scrollView.bounds toView:nil];
+	[[LTScreenshotManager sharedManager] captureRegion:frameInWindow completion:^(UIImage * _Nullable image, NSError * _Nullable error) {
+		if (image) {
+			[self.frames addObject:image];
+		}
+		if (progress) {
+			progress(self.frames.count);
+		}
+	}];
 }
 
-- (void)finishSessionWithCompletion:
-    (void (^)(UIImage *image, NSError *error))completion {
-
-    if (!self.capturing) {
-        if (completion) {
-            completion(nil, [NSError errorWithDomain:@"LTLongShotManager"
-                                                code:1
-                                            userInfo:@{
-                NSLocalizedDescriptionKey:
-                    @"长截图会话未启动"
-            }]);
-        }
-        return;
-    }
-
-    self.capturing = NO;
-
-    UIImage *result = [self stitchFrames:self.frames];
-
-    [self.frames removeAllObjects];
-    self.scrollView = nil;
-
-    if (completion) {
-        completion(result, nil);
-    }
+- (void)finishSessionWithCompletion:(LTLongShotCompletion)completion {
+	self.isCapturing = NO;
+	if (self.frames.count == 0) {
+		NSError *error = [NSError errorWithDomain:@"LTLongShotManager" code:1
+			userInfo:@{NSLocalizedDescriptionKey: @"没有捕获到截图"}];
+		completion(nil, error);
+		return;
+	}
+	UIImage *stitched = [self stitchFrames:self.frames];
+	completion(stitched, nil);
 }
 
 - (void)cancelSession {
-    self.capturing = NO;
-    [self.frames removeAllObjects];
-    self.scrollView = nil;
+	self.isCapturing = NO;
+	[self.frames removeAllObjects];
+	self.targetScrollView = nil;
 }
+#pragma mark - Stitching
 
-- (UIImage *)stitchFrames:(NSArray<UIImage *> *)frames {
-    if (frames.count == 0) {
-        return nil;
-    }
+- (nullable UIImage *)stitchFrames:(NSArray<UIImage *> *)frames {
+	if (frames.count == 0) return nil;
+	if (frames.count == 1) return frames.firstObject;
 
-    if (frames.count == 1) {
-        return frames.firstObject;
-    }
+	CGFloat width = frames.firstObject.size.width;
+	CGFloat totalHeight = 0;
+	for (UIImage *frame in frames) {
+		totalHeight += (frame.size.height - self.overlapTrim);
+	}
+	totalHeight += self.overlapTrim; // restore trim for the final frame
 
-    CGFloat width = frames.firstObject.size.width;
-    CGFloat totalHeight = 0;
+	CGSize canvasSize = CGSizeMake(width, totalHeight);
+	UIGraphicsImageRendererFormat *format = [UIGraphicsImageRendererFormat preferredFormat];
+	format.opaque = YES;
+	UIGraphicsImageRenderer *renderer =
+		[[UIGraphicsImageRenderer alloc] initWithSize:canvasSize format:format];
 
-    for (NSUInteger i = 0; i < frames.count; i++) {
-        UIImage *image = frames[i];
-
-        if (i == 0) {
-            totalHeight += image.size.height;
-        } else {
-            totalHeight +=
-                MAX(0, image.size.height - self.overlapTrim);
-        }
-    }
-
-    UIGraphicsImageRendererFormat *format =
-        [UIGraphicsImageRendererFormat preferredFormat];
-
-    format.opaque = YES;
-
-    UIGraphicsImageRenderer *renderer =
-        [[UIGraphicsImageRenderer alloc]
-         initWithSize:CGSizeMake(width, totalHeight)
-         format:format];
-
-    return [renderer imageWithActions:
-        ^(UIGraphicsImageRendererContext *context) {
-
-        CGFloat y = 0;
-
-        for (NSUInteger i = 0; i < frames.count; i++) {
-            UIImage *image = frames[i];
-
-            CGRect drawRect;
-
-            if (i == 0) {
-                drawRect =
-                    CGRectMake(0,
-                               y,
-                               image.size.width,
-                               image.size.height);
-            } else {
-                CGFloat cropTop =
-                    MIN(self.overlapTrim,
-                        image.size.height);
-
-                CGRect sourceRect =
-                    CGRectMake(0,
-                               cropTop,
-                               image.size.width,
-                               image.size.height - cropTop);
-
-                CGFloat drawHeight = sourceRect.size.height;
-
-                drawRect =
-                    CGRectMake(0,
-                               y,
-                               image.size.width,
-                               drawHeight);
-
-                [image drawInRect:drawRect
-                         blendMode:kCGBlendModeNormal
-                             alpha:1.0];
-
-                y += drawHeight;
-                continue;
-            }
-
-            [image drawInRect:drawRect
-                     blendMode:kCGBlendModeNormal
-                         alpha:1.0];
-
-            y += drawRect.size.height;
-        }
-    }];
+	return [renderer imageWithActions:^(UIGraphicsImageRendererContext * _Nonnull ctx) {
+		CGFloat y = 0;
+		for (UIImage *frame in frames) {
+			[frame drawAtPoint:CGPointMake(0, y)];
+			y += (frame.size.height - self.overlapTrim);
+		}
+	}];
 }
 
 @end
