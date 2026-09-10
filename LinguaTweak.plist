@@ -1,9 +1,0 @@
-{
-	entry = {
-		bundle = "LinguaTweakPrefs";
-		cell = "PSListItemCell";
-		detail = "LTPrefsRootListController";
-		icon = "icon.png";
-		label = "LinguaTweak";
-	};
-}
