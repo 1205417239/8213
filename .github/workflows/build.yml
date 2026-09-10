@@ -1,0 +1,18 @@
+{
+name: Build LinguaTweak,
+"on": workflow_dispatch,
+jobs: {
+build: {
+runs-on: macos-14,
+steps: [
+{uses: actions/checkout@v4},
+{name: Install Theos, run: 'rm -rf "$HOME/theos" && git clone --depth=1 --recurse-submodules https://github.com/roothide/theos.git "$HOME/theos"'},
+{name: Install iPhoneOS 16.5 SDK, run: 'export THEOS="$HOME/theos" && mkdir -p "$THEOS/sdks" && curl -L https://github.com/theos/sdks/releases/latest/download/iPhoneOS16.5.sdk.tar.xz -o "$THEOS/sdks/iPhoneOS16.5.sdk.tar.xz" && tar -xJf "$THEOS/sdks/iPhoneOS16.5.sdk.tar.xz" -C "$THEOS/sdks" && rm -f "$THEOS/sdks/iPhoneOS16.5.sdk.tar.xz" && ls -ld "$THEOS/sdks/iPhoneOS16.5.sdk"'},
+{name: Install ldid, run: 'brew install ldid'},
+{name: Build LinguaTweak, run: 'export THEOS="$HOME/theos" && export THEOS_MAKE_PATH="$THEOS/makefiles" && export PATH="$THEOS/bin:/opt/homebrew/bin:/usr/local/bin:$PATH" && make package FINALPACKAGE=1'},
+{name: Inspect package, run: 'DEB=$(find . -name "*.deb" -type f | head -n 1); if [ -z "$DEB" ]; then echo "ERROR: No .deb package found"; exit 1; fi; DEB="$(cd "$(dirname "$DEB")" && pwd)/$(basename "$DEB")"; echo "Package: $DEB"; TMP_DIR=$(mktemp -d); (cd "$TMP_DIR" && ar -x "$DEB"); echo "=== Package archive contents ==="; tar -tf "$TMP_DIR/data.tar"*; if tar -tf "$TMP_DIR/data.tar"* | grep -q "LinguaTweak.dylib"; then echo "dylib found"; else echo "ERROR: dylib not found"; exit 1; fi; if tar -tf "$TMP_DIR/data.tar"* | grep -q "LinguaTweakPrefs.bundle"; then echo "bundle found"; else echo "ERROR: bundle not found"; exit 1; fi; if tar -tf "$TMP_DIR/data.tar"* | grep -q "Library/PreferenceLoader/Preferences/LinguaTweak.plist"; then echo "prefs plist found"; else echo "ERROR: prefs plist NOT found"; exit 1; fi; if tar -tf "$TMP_DIR/data.tar"* | grep -q "Library/MobileSubstrate/DynamicLibraries/LinguaTweak.plist"; then echo "filter plist found"; else echo "ERROR: filter plist NOT found"; exit 1; fi'},
+{name: Upload deb, uses: actions/upload-artifact@v4, with: {name: LinguaTweak-arm64e, path: [packages/*.deb, .theos/packages/*.deb, LinguaTweakPrefs/packages/*.deb, LinguaTweakPrefs/.theos/packages/*.deb], if-no-files-found: error}}
+]
+}
+}
+}
