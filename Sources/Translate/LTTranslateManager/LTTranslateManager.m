@@ -6,14 +6,14 @@
 - (void)translateText:(NSString *)text
         targetLanguage:(NSString *)targetLanguage
             completion:(LTTranslateCompletion)completion {
-	// Extension point: replace this with a real Translation.framework /
-	// network call. For now, this validates the pipeline end-to-end so
-	// the panel UI and downstream modules (AI/Editor/Sileo) are testable.
-	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
-		NSString *result = [NSString stringWithFormat:@"[%@] %@", targetLanguage, text];
-		dispatch_async(dispatch_get_main_queue(), ^{
-			completion(result, nil);
-		});
+	// The "system" engine is a placeholder slot. A real implementation
+	// would use iOS 17's Translation framework or a configured network
+	// API. Until a real engine is wired in, return an explicit error so
+	// callers never mistake echo output for a real translation.
+	NSError *error = [NSError errorWithDomain:@"LTTranslateManager" code:10
+		userInfo:@{NSLocalizedDescriptionKey: @"Translation engine not configured. Choose Google/DeepL/Custom in settings and provide API credentials."}];
+	dispatch_async(dispatch_get_main_queue(), ^{
+		completion(nil, error);
 	});
 }
 @end

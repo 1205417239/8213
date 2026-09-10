@@ -17,9 +17,11 @@ LinguaTweak_FILES = Tweak.x \
                     Sources/Editor/LTEditorManager/LTEditorManager.m \
                     Sources/LongShot/LTLongShotManager/LTLongShotManager.m \
                     Sources/Sileo/LTSileoTranslateManager/LTSileoTranslateManager.m \
+                    Sources/OCR/LTOCRManager/LTOCRManager.m \
                     Sources/UI/LTToolbarView.m \
                     Sources/UI/LTTranslatePanel.m \
-                    Sources/UI/LTHintLabel.m
+                    Sources/UI/LTHintLabel.m \
+                    Sources/UI/LTRegionSelectView.m
 
 LinguaTweak_CFLAGS = -fobjc-arc -Wall -Wno-deprecated-declarations \
                      -ISources/Core/LTManager \
@@ -30,8 +32,9 @@ LinguaTweak_CFLAGS = -fobjc-arc -Wall -Wno-deprecated-declarations \
                      -ISources/Editor/LTEditorManager \
                      -ISources/LongShot/LTLongShotManager \
                      -ISources/Sileo/LTSileoTranslateManager \
+                     -ISources/OCR/LTOCRManager \
                      -ISources/UI
-LinguaTweak_FRAMEWORKS = UIKit Foundation
+LinguaTweak_FRAMEWORKS = UIKit Foundation Vision CoreImage
 
 SUBPROJECTS += LinguaTweakPrefs
 

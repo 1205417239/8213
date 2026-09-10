@@ -7,6 +7,7 @@
 #import "LTEditorManager.h"
 #import "LTLongShotManager.h"
 #import "LTSileoTranslateManager.h"
+#import "LTOCRManager.h"
 #import "LTToolbarView.h"
 
 #pragma mark - Window
@@ -324,6 +325,44 @@ static void LTShowToolbar(CGRect selectionRect, UIView *sourceView) {
 
 %end
 
+#pragma mark - SpringBoard Global Trigger
+
+// Helper class for the global trigger gesture. Uses a class-method target
+// so there is no instance lifecycle to manage.
+@interface LTGlobalTrigger : NSObject
+@end
+@implementation LTGlobalTrigger
++ (void)handleLongPress:(UILongPressGestureRecognizer *)recognizer {
+	if (recognizer.state != UIGestureRecognizerStateBegan) return;
+	if (![[LTManager sharedManager] isTweakEnabled]) return;
+	if (![[LTManager sharedManager] boolForKey:@"FreezeEnabled" default:YES]) return;
+	[[LTFreezeManager sharedManager] startFreeze];
+}
+@end
+
+static void LTInstallSpringBoardTrigger(void) {
+	NSString *bundleID = NSBundle.mainBundle.bundleIdentifier;
+	if (![bundleID isEqualToString:@"com.apple.springboard"]) return;
+
+	// Wait for SpringBoard to finish launching so keyWindow exists.
+	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(2.5 * NSEC_PER_SEC)),
+		dispatch_get_main_queue(), ^{
+		UIWindow *keyWindow = LTActiveWindow();
+		if (!keyWindow) return;
+
+		// Three-finger long press: avoids conflict with normal one-finger
+		// gestures and system two-finger scrolls.
+		UILongPressGestureRecognizer *longPress =
+			[[UILongPressGestureRecognizer alloc]
+				initWithTarget:[LTGlobalTrigger class]
+				action:@selector(handleLongPress:)];
+		longPress.numberOfTouchesRequired = 3;
+		longPress.minimumPressDuration = 0.8;
+		longPress.allowableMovement = 20.0;
+		[keyWindow addGestureRecognizer:longPress];
+	});
+}
+
 #pragma mark - Constructor
 
 %ctor {
@@ -335,5 +374,10 @@ static void LTShowToolbar(CGRect selectionRect, UIView *sourceView) {
 	[manager registerModule:[LTEditorManager sharedManager]];
 	[manager registerModule:[LTLongShotManager sharedManager]];
 	[manager registerModule:[LTSileoTranslateManager sharedManager]];
+	[manager registerModule:[LTOCRManager sharedManager]];
 	[manager activateAllModules];
+
+	// Install the SpringBoard global trigger (three-finger long press)
+	// only when running inside SpringBoard.
+	LTInstallSpringBoardTrigger();
 }

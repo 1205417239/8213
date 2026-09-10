@@ -31,7 +31,11 @@
 - (instancetype)init {
 	self = [super init];
 	if (self) {
-		_provider = [LTAILocalEchoProvider new];
+		// Default to nil: callers must set a concrete provider.
+		// LTAILocalEchoProvider is retained below as a reference
+		// implementation, but it is never used by default so users
+		// never see fake "AI" output.
+		_provider = nil;
 	}
 	return self;
 }
@@ -67,10 +71,22 @@
 		completion(nil, error);
 		return;
 	}
+	if (!self.provider) {
+		NSError *error = [NSError errorWithDomain:@"LTAIManager" code:10
+			userInfo:@{NSLocalizedDescriptionKey: @"AI provider not configured. Set LTAIManager.sharedManager.provider to a concrete LTAIProvider."}];
+		completion(nil, error);
+		return;
+	}
 	NSString *prompt = [self promptForAction:action text:selectedText];
 	[self.provider sendPrompt:prompt completion:completion];
 }
 - (void)runCustomPrompt:(NSString *)userPrompt onText:(NSString *)selectedText completion:(LTAICompletion)completion {
+	if (!self.provider) {
+		NSError *error = [NSError errorWithDomain:@"LTAIManager" code:10
+			userInfo:@{NSLocalizedDescriptionKey: @"AI provider not configured. Set LTAIManager.sharedManager.provider to a concrete LTAIProvider."}];
+		completion(nil, error);
+		return;
+	}
 	NSString *combined = selectedText.length > 0
 		? [NSString stringWithFormat:@"%@\n\n上下文：\n%@", userPrompt, selectedText]
 		: userPrompt;
